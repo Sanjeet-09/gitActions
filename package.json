@@ -1,0 +1,30 @@
+{
+  "name": "sgpa-calculator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Student Result & SGPA Calculator - demo application for a GitHub Actions CI/CD presentation",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test",
+    "pretest:coverage": "node -e \"import fs from 'node:fs'; fs.mkdirSync('coverage',{recursive:true})\"",
+    "test:coverage": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "build": "node scripts/build.js",
+    "start": "node scripts/serve.js",
+    "ci": "npm run lint && npm test && npm run build"
+  },
+  "keywords": [
+    "devops",
+    "github-actions",
+    "ci-cd",
+    "demo"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^9.15.0"
+  }
+}

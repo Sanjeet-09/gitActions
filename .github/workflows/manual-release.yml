@@ -1,0 +1,122 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        default: staging
+        options:
+          - staging
+          - production
+      release_tag:
+        description: 'Version tag, e.g. v1.1.0'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (build and validate, do not tag)'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    name: Validate release
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate tag format
+        id: check
+        run: |
+          TAG="${{ inputs.release_tag }}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::'$TAG' is not valid semver. Expected vMAJOR.MINOR.PATCH"
+            exit 1
+          fi
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "Tag $TAG accepted."
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ inputs.release_tag }}
+          path: dist/
+
+  release:
+    name: Release to ${{ inputs.environment }}
+    needs: validate
+    runs-on: ubuntu-latest
+
+    environment:
+      name: ${{ inputs.environment }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: release-${{ inputs.release_tag }}
+          path: dist
+
+      - name: Use a secret safely
+        env:
+          DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$DEPLOY_TOKEN" ]; then
+            echo "No DEPLOY_TOKEN configured - running in demo mode."
+          else
+            echo "DEPLOY_TOKEN is present (length ${#DEPLOY_TOKEN}). Value never printed."
+          fi
+
+      - name: Simulate deployment
+        run: |
+          echo "Deploying version ${{ needs.validate.outputs.version }} to ${{ inputs.environment }}"
+          ls -la dist/
+
+      - name: Create git tag and GitHub Release
+        if: inputs.dry_run == false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ inputs.release_tag }}" -m "Release ${{ inputs.release_tag }}"
+          git push origin "${{ inputs.release_tag }}"
+          gh release create "${{ inputs.release_tag }}" \
+            --title "${{ inputs.release_tag }}" \
+            --notes "Automated release to ${{ inputs.environment }} from commit ${GITHUB_SHA:0:7}."
+
+      - name: Summary
+        run: |
+          {
+            echo "## Release summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| Tag | \`${{ inputs.release_tag }}\` |"
+            echo "| Environment | \`${{ inputs.environment }}\` |"
+            echo "| Dry run | \`${{ inputs.dry_run }}\` |"
+            echo "| Triggered by | @${{ github.actor }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

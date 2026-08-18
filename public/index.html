@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SGPA Calculator &middot; CI/CD Demo</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <p class="eyebrow">MCA Sem 3 &middot; DevOps</p>
+      <h1>Student Result &amp; SGPA Calculator</h1>
+      <p class="sub">
+        Every version of this page was tested, built and deployed automatically by
+        <strong>GitHub Actions</strong>. Nobody uploaded a file by hand.
+      </p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Enter marks</h2>
+        <table id="subjects">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Credits</th>
+              <th>Marks / 100</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+        <div class="actions">
+          <button id="add" type="button" class="ghost">+ Add subject</button>
+          <button id="calc" type="button" class="primary">Calculate result</button>
+        </div>
+        <p id="error" class="error" role="alert"></p>
+      </section>
+
+      <section class="card" id="result-card" hidden>
+        <h2>Result</h2>
+        <div class="stats">
+          <div class="stat"><span id="sgpa">-</span><label>SGPA</label></div>
+          <div class="stat"><span id="pct">-</span><label>Percentage</label></div>
+          <div class="stat"><span id="credits">-</span><label>Credits</label></div>
+          <div class="stat"><span id="status">-</span><label>Status</label></div>
+        </div>
+        <p id="division" class="division"></p>
+        <table class="sheet">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Marks</th>
+              <th>Grade</th>
+              <th>Points</th>
+              <th>Remark</th>
+            </tr>
+          </thead>
+          <tbody id="sheet"></tbody>
+        </table>
+      </section>
+    </main>
+
+    <footer class="build">
+      <h2>Build provenance</h2>
+      <p class="hint">
+        These values are injected at build time by the CI pipeline &mdash; they prove this page
+        came from a specific commit, not from someone's laptop.
+      </p>
+      <dl>
+        <div><dt>Version</dt><dd id="b-version">-</dd></div>
+        <div><dt>Commit</dt><dd id="b-sha">-</dd></div>
+        <div><dt>Branch</dt><dd id="b-ref">-</dd></div>
+        <div><dt>Workflow run</dt><dd id="b-run">-</dd></div>
+        <div><dt>Built at (UTC)</dt><dd id="b-time">-</dd></div>
+      </dl>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,159 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION_DEFAULT: '20'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION_DEFAULT }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  test:
+    name: Test · Node ${{ matrix.node }} · ${{ matrix.os }}
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [20, 22, 24]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Run tests with coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: npm run test:coverage
+
+      - name: Upload coverage report
+        if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+      - name: Publish job summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "### Test result"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| OS | \`${{ matrix.os }}\` |"
+            echo "| Node | \`${{ matrix.node }}\` |"
+            echo "| Commit | \`${GITHUB_SHA:0:7}\` |"
+            echo "| Status | ${{ job.status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION_DEFAULT }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build site
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: dist/
+          retention-days: 7
+
+      - name: Report build contents
+        run: |
+          {
+            echo "### Build artifact"
+            echo ""
+            echo '```'
+            ls -la dist/
+            echo '```'
+            echo ""
+            echo '**build-info.json**'
+            echo '```json'
+            cat dist/build-info.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ci-passed:
+    name: CI passed
+    if: always()
+    needs: [lint, test, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify all upstream jobs succeeded
+        run: |
+          echo "lint  = ${{ needs.lint.result }}"
+          echo "test  = ${{ needs.test.result }}"
+          echo "build = ${{ needs.build.result }}"
+          if [ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" = "true" ]; then
+            echo "::error::One or more CI jobs failed - blocking the merge."
+            exit 1
+          fi
+          echo "All CI jobs green."
