@@ -6,7 +6,7 @@ export const GRADE_SCALE = [
   { min: 50, grade: 'B', points: 6, label: 'Above Average' },
   { min: 40, grade: 'C', points: 5, label: 'Pass' },
   { min: 0, grade: 'F', points: 0, label: 'Fail' },
-];
+
 
 export const PASS_MARK = 40;
 
